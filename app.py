@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# --- UI (Improved JavaScript & Beautiful Dark Theme) ---
+# --- FRONTEND UI (Clean Dark Theme) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -16,16 +16,18 @@ HTML_TEMPLATE = """
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #0f0c20; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .container { background: #181528; padding: 30px; border-radius: 15px; width: 100%; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #2a2444; }
-        h1 { color: #a178ff; margin-bottom: 20px; font-size: 1.8rem; text-transform: uppercase; }
+        h1 { color: #a178ff; margin-bottom: 20px; font-size: 1.8rem; text-transform: uppercase; letter-spacing: 1px; }
         .input-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #2a2444; background: #0f0c20; color: #fff; outline: none; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #2a2444; background: #0f0c20; color: #fff; outline: none; font-size: 1rem; }
         input:focus { border-color: #a178ff; }
-        button { background: #a178ff; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button { background: #a178ff; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; }
         button:hover { background: #8253e6; }
-        .status-text { margin: 15px 0; color: #ffc107; font-size: 0.9rem; display: none; }
+        button:disabled { background: #444; cursor: not-allowed; }
+        .status-text { margin: 15px 0; color: #ffc107; font-size: 0.9rem; display: none; font-weight: 500; }
         .result-box { display: none; margin-top: 20px; text-align: left; background: #0f0c20; padding: 15px; border-radius: 10px; border: 1px solid #2a2444; }
         .link-item { background: #181528; padding: 12px; margin-top: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2a2444; }
-        .download-btn { background: #28a745; color: white; text-decoration: none; padding: 6px 15px; border-radius: 5px; font-size: 0.9rem; }
+        .quality { font-weight: 600; color: #a178ff; }
+        .download-btn { background: #28a745; color: white; text-decoration: none; padding: 6px 15px; border-radius: 5px; font-size: 0.9rem; font-weight: bold; transition: 0.2s; }
         .download-btn:hover { background: #218838; }
     </style>
 </head>
@@ -38,7 +40,7 @@ HTML_TEMPLATE = """
         </div>
         <div id="statusText" class="status-text">Processing... Please wait...</div>
         <div id="resultBox" class="result-box">
-            <h3 style="font-size: 1rem; color: #a178ff; margin-bottom: 10px;">Download Links:</h3>
+            <h3 style="font-size: 1rem; color: #a178ff; margin-bottom: 10px;">Download Links Ready:</h3>
             <ul id="linksList" style="list-style: none;"></ul>
         </div>
     </div>
@@ -54,7 +56,7 @@ HTML_TEMPLATE = """
             if(!url) { alert('Bhai pehle link toh daalo!'); return; }
             
             // UI Reset & Show Loading
-            statusText.innerText = "Connecting to Cobalt API... Please wait...";
+            statusText.innerText = "Connecting to Bypass Mirror Server... Please wait...";
             statusText.style.display = 'block';
             resultBox.style.display = 'none';
             list.innerHTML = '';
@@ -72,29 +74,29 @@ HTML_TEMPLATE = """
                 btn.disabled = false;
                 
                 if(data.error) { 
-                    alert('Backend Error: ' + data.error); 
+                    alert('Error: ' + data.error); 
                     return; 
                 }
                 
                 let linksAdded = false;
                 if(data.video_url) {
-                    list.innerHTML += `<li class="link-item"><span>🎥 Full Video (1080p)</span><a href="${data.video_url}" target="_blank" class="download-btn">Download</a></li>`;
+                    list.innerHTML += `<li class="link-item"><span class="quality">🎥 Full Video (1080p HD)</span><a href="${data.video_url}" target="_blank" class="download-btn">Download</a></li>`;
                     linksAdded = true;
                 }
                 if(data.audio_url) {
-                    list.innerHTML += `<li class="link-item"><span>🎵 Audio Only (MP3/M4A)</span><a href="${data.audio_url}" target="_blank" class="download-btn">Download</a></li>`;
+                    list.innerHTML += `<li class="link-item"><span class="quality">🎵 Audio Only (MP3/M4A)</span><a href="${data.audio_url}" target="_blank" class="download-btn">Download</a></li>`;
                     linksAdded = true;
                 }
                 
                 if(linksAdded) {
                     resultBox.style.display = 'block';
                 } else {
-                    alert('Cobalt API se koi valid link nahi mila! Video private ya blocked ho sakti hai.');
+                    alert('Server busy hai ya video accessible nahi hai. Ek baar fir try karein!');
                 }
             } catch(err) {
                 statusText.style.display = 'none';
                 btn.disabled = false;
-                alert('Request failed! Console check karo bhai.');
+                alert('Request failed! Network check karo bhai.');
                 console.error(err);
             }
         }
@@ -103,6 +105,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# --- BACKEND (Flask + Cobalt Mirror API) ---
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -116,14 +119,15 @@ def get_links():
         if not video_url:
             return jsonify({'error': 'URL missing hai bhai!'}), 400
 
-        api_url = "https://api.cobalt.tools/api/json"
+        # Official Cobalt Alternative Endpoint (wuk.sh)
+        api_url = "https://co.wuk.sh/api/json"
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         
-        # 1. Video Request
+        # 1. Video Request (Bypass)
         v_res = requests.post(api_url, json={"url": video_url, "videoQuality": "1080"}, headers=headers)
         v_data = v_res.json() if v_res.status_code == 200 else {}
         
-        # 2. Audio Request
+        # 2. Audio Request (Bypass)
         a_res = requests.post(api_url, json={"url": video_url, "isAudioOnly": True}, headers=headers)
         a_data = a_res.json() if a_res.status_code == 200 else {}
         
@@ -135,6 +139,7 @@ def get_links():
     except Exception as e:
         return jsonify({'error': f"Internal Server Crash: {str(e)}"}), 500
 
+# --- RENDER PORT BINDING ---
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
