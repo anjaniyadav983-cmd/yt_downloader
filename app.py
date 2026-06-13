@@ -1,300 +1,97 @@
-from flask import Flask, request, jsonify
+from flask import Flask, render_template_string, request, jsonify
+import yt_dlp
 
 app = Flask(__name__)
 
-HTML_PAGE = """
+# --- FRONTEND (HTML + CSS + JS) ---
+HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡ CyberX Premium Downloader</title>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <title>Editors Video Downloader</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Space Grotesk', sans-serif; }
-        
-        /* Interactive Pure-CSS 3D Motion Background */
-        body {
-            background: #06050c;
-            color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Pure CSS 3D Floating Objects & Gradients (No Images Needed) */
-        .bg-glow {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(140px);
-            opacity: 0.45;
-            z-index: 1;
-            animation: floatGlow 12s ease-in-out infinite alternate;
-        }
-        .glow-1 { width: 350px; height: 350px; background: conic-gradient(#ff007f, #7f00ff, #ff007f); top: -10%; left: 15%; }
-        .glow-2 { width: 450px; height: 450px; background: conic-gradient(#00f2fe, #4facfe, #00f2fe); bottom: -10%; right: 15%; animation-delay: -6s; }
-
-        @keyframes floatGlow {
-            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
-            100% { transform: translate(60px, 40px) rotate(360deg) scale(1.2); }
-        }
-
-        /* Extreme Glassmorphic Container with Neon Edge */
-        .wrapper {
-            position: relative;
-            z-index: 10;
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border: 1px solid rgba(255, 255, 255, 0.09);
-            padding: 40px;
-            border-radius: 28px;
-            width: 90%;
-            max-width: 540px;
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255,255,255,0.1);
-            text-align: center;
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        h2 {
-            font-size: 34px;
-            font-weight: 700;
-            letter-spacing: -1.5px;
-            margin-bottom: 8px;
-            background: linear-gradient(90deg, #00f2fe, #ff007f);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(0, 242, 254, 0.2);
-        }
-
-        .subtitle { color: #8fa0ba; font-size: 14px; margin-bottom: 30px; letter-spacing: 0.5px; }
-
-        /* Neon Input Box */
-        .input-box {
-            display: flex;
-            align-items: center;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 4px;
-            transition: all 0.3s ease;
-            margin-bottom: 20px;
-        }
-        .input-box i { color: #ff007f; font-size: 20px; margin-left: 15px; margin-right: 10px; }
-        input {
-            flex: 1;
-            padding: 15px 10px;
-            background: transparent;
-            border: none;
-            color: white;
-            font-size: 16px;
-            outline: none;
-        }
-        .input-box:focus-within {
-            border-color: #00f2fe;
-            box-shadow: 0 0 25px rgba(0, 242, 254, 0.25);
-        }
-
-        /* Main Extract Button */
-        .action-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(90deg, #ff007f, #7f00ff);
-            color: white;
-            border: none;
-            border-radius: 16px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 8px 20px rgba(255, 0, 127, 0.3);
-        }
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 30px rgba(255, 0, 127, 0.5);
-        }
-
-        /* Modern Custom Wave Loader */
-        .loader-container {
-            display: none;
-            margin: 25px 0;
-        }
-        .wave-loader {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 6px;
-        }
-        .bar {
-            width: 4px;
-            height: 24px;
-            background: #00f2fe;
-            animation: wave 1s ease-in-out infinite;
-            border-radius: 2px;
-        }
-        .bar:nth-child(2) { background: #7f00ff; animation-delay: 0.2s; }
-        .bar:nth-child(3) { background: #ff007f; animation-delay: 0.4s; }
-        @keyframes wave {
-            0%, 100% { transform: scaleY(1); }
-            50% { transform: scaleY(2.3); }
-        }
-
-        /* Result Area with Thumbnail */
-        #result {
-            margin-top: 30px;
-            display: none;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 20px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            animation: slideUp 0.6s cubic-bezier(0.165, 0.84, 0.44, 1) forwards;
-        }
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(25px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .thumbnail-box {
-            width: 100%;
-            border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0 12px 28px rgba(0,0,0,0.6);
-            margin-bottom: 15px;
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .thumbnail-box img { width: 100%; display: block; }
-
-        #title {
-            font-size: 15px;
-            color: #e2e8f0;
-            font-weight: 600;
-            margin-bottom: 20px;
-            text-align: left;
-            line-height: 1.4;
-        }
-
-        /* Dual Buttons for MP4 and MP3 */
-        .btn-group {
-            display: flex;
-            gap: 12px;
-        }
-        .download-btn {
-            flex: 1;
-            padding: 14px;
-            text-decoration: none;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-            color: white;
-        }
-        .mp4-btn {
-            background: linear-gradient(90deg, #00f2fe, #4facfe);
-            box-shadow: 0 6px 15px rgba(0, 242, 254, 0.2);
-        }
-        .mp4-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4);
-        }
-        .mp3-btn {
-            background: linear-gradient(90deg, #ff007f, #ff5e62);
-            box-shadow: 0 6px 15px rgba(255, 0, 127, 0.2);
-        }
-        .mp3-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(255, 0, 127, 0.4);
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #0f0c20; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { background: #181528; padding: 30px; border-radius: 15px; width: 100%; max-width: 600px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #2a2444; text-align: center; }
+        h1 { font-size: 2rem; margin-bottom: 20px; color: #a178ff; text-transform: uppercase; letter-spacing: 1px; }
+        .input-box { display: flex; gap: 10px; margin-bottom: 25px; }
+        input { flex: 1; padding: 12px 15px; border-radius: 8px; border: 2px solid #2a2444; background: #0f0c20; color: #fff; font-size: 1rem; outline: none; transition: 0.3s; }
+        input:focus { border-color: #a178ff; }
+        button { background: #a178ff; color: #fff; border: none; padding: 12px 25px; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #8253e6; transform: translateY(-2px); }
+        .loader { display: none; margin: 20px auto; border: 4px solid #2a2444; border-top: 4px solid #a178ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .result-box { display: none; margin-top: 25px; text-align: left; background: #0f0c20; padding: 20px; border-radius: 10px; border: 1px solid #2a2444; }
+        .video-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 15px; color: #fff; line-height: 1.4; }
+        .thumb { width: 100%; border-radius: 8px; margin-bottom: 15px; display: block; }
+        .links-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+        .link-item { display: flex; justify-content: space-between; align-items: center; background: #181528; padding: 12px; border-radius: 6px; border: 1px solid #2a2444; }
+        .quality { font-weight: 600; color: #a178ff; }
+        .size { font-size: 0.9rem; color: #888; }
+        .download-btn { background: #28a745; padding: 6px 12px; font-size: 0.9rem; text-decoration: none; border-radius: 5px; color: #fff; transition: 0.2s; }
+        .download-btn:hover { background: #218838; }
     </style>
 </head>
 <body>
-
-    <div class="bg-glow glow-1"></div>
-    <div class="bg-glow glow-2"></div>
-
-    <div class="wrapper">
-        <h2>⚡ CyberX Studio</h2>
-        <p class="subtitle">Extract high quality streams instantly</p>
-        
+    <div class="container">
+        <h1>Editors Downloader</h1>
         <div class="input-box">
-            <i class="fa-brands fa-youtube"></i>
-            <input type="text" id="url" placeholder="Paste YouTube link here...">
+            <input type="text" id="videoUrl" placeholder="Paste YouTube Video Link Here...">
+            <button onclick="fetchLinks()">Get Links</button>
         </div>
-        <button id="actionBtn" class="action-btn" onclick="processLink()">Analyze Link</button>
-        
-        <div class="loader-container" id="loader">
-            <div class="wave-loader">
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-            </div>
-            <p style="margin-top: 12px; color: #00f2fe; font-size: 13px; font-weight: 600; letter-spacing: 1px;">DECRYPTING SOURCE...</p>
-        </div>
-
-        <div id="result">
-            <div class="thumbnail-box">
-                <img id="thumb" src="" alt="Thumbnail">
-            </div>
-            <h4 id="title"></h4>
-            
-            <div class="btn-group">
-                <a id="mp4Lnk" class="download-btn mp4-btn" href="" target="_blank">
-                    <i class="fa-solid fa-video"></i> Video MP4
-                </a>
-                <a id="mp3Lnk" class="download-btn mp3-btn" href="" target="_blank">
-                    <i class="fa-solid fa-music"></i> Audio MP3
-                </a>
-            </div>
+        <div class="loader" id="loader"></div>
+        <div class="result-box" id="resultBox">
+            <h3 class="video-title" id="videoTitle"></h3>
+            <img src="" alt="Thumbnail" class="thumb" id="videoThumb">
+            <ul class="links-list" id="linksList"></ul>
         </div>
     </div>
 
     <script>
-        async function processLink() {
-            let u = document.getElementById('url').value;
-            if(!u) return alert('Pehle YouTube URL daalo boss!');
+        async function fetchLinks() {
+            const url = document.getElementById('videoUrl').value;
+            const loader = document.getElementById('loader');
+            const resultBox = document.getElementById('resultBox');
+            const linksList = document.getElementById('linksList');
             
-            let loader = document.getElementById('loader');
-            let result = document.getElementById('result');
-            let btn = document.getElementById('actionBtn');
-
+            if(!url) { alert('Bhai pehle link toh daalo!'); return; }
+            
             loader.style.display = 'block';
-            result.style.display = 'none';
-            btn.disabled = true;
-            btn.style.opacity = '0.3';
-
+            resultBox.style.display = 'none';
+            linksList.innerHTML = '';
+            
             try {
-                let res = await fetch('/get?url=' + encodeURIComponent(u));
-                let d = await res.json();
+                const response = await fetch('/get_links', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                const data = await response.json();
+                loader.style.display = 'none';
                 
+                if(data.error) { alert('Error: ' + data.error); return; }
+                
+                document.getElementById('videoTitle').innerText = data.title;
+                document.getElementById('videoThumb').src = data.thumbnail;
+                
+                data.links.forEach(link => {
+                    const li = document.createElement('li');
+                    li.className = 'link-item';
+                    li.innerHTML = `
+                        <div>
+                            <span class="quality">${link.quality}</span>
+                            <span class="size"> - ${link.size}</span>
+                        </div>
+                        <a href="${link.url}" target="_blank" class="download-btn">Download</a>
+                    `;
+                    linksList.appendChild(li);
+                });
+                resultBox.style.display = 'block';
+            } catch(err) {
                 loader.style.display = 'none';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-
-                if(d.error) {
-                    alert('Error: ' + d.error);
-                } else {
-                    document.getElementById('title').innerText = d.title;
-                    document.getElementById('thumb').src = d.thumbnail;
-                    
-                    // Setting both links
-                    document.getElementById('mp4Lnk').href = d.mp4_url;
-                    document.getElementById('mp3Lnk').href = d.mp3_url;
-                    
-                    result.style.display = 'block';
-                }
-            } catch(e) {
-                loader.style.display = 'none';
-                btn.disabled = false;
-                btn.style.opacity = '1';
-                alert('Connection Error!');
+                alert('Kuch gadbad hui bhai!');
             }
         }
     </script>
@@ -302,34 +99,75 @@ HTML_PAGE = """
 </html>
 """
 
+# --- BACKEND (Flask + yt-dlp) ---
 @app.route('/')
-def home():
-    return HTML_PAGE
+def index():
+    return render_template_string(HTML_TEMPLATE)
 
-@app.route('/get')
-def get_link():
-    video_url = request.args.get('url')
-    import yt_dlp
+@app.route('/get_links', methods=['POST'])
+def get_links():
+    data = request.get_json()
+    video_url = data.get('url')
+    
+    if not video_url:
+        return jsonify({'error': 'URL missing hai bhai!'}), 400
+
+    ydl_opts = {
+        'cookiefile': 'cookies.txt',  # Aapki download ki hui file
+        'quiet': True,
+        'no_warnings': True,
+    }
+
     try:
-        # Dono mp4 aur mp3 links nikalne ke liye alag format check kiya hai
-        with yt_dlp.YoutubeDL({'format': '18'}) as ydl:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            mp4_url = info.get('url')
+            title = info.get('title', 'Video')
+            thumbnail = info.get('thumbnail', '')
             
-        with yt_dlp.YoutubeDL({'format': '140'}) as ydl: # Format 140 specifically m4a/mp3 audio hota hai
-            audio_info = ydl.extract_info(video_url, download=False)
-            mp3_url = audio_info.get('url')
+            download_links = []
+            formats = info.get('formats', [])
+            
+            for f in formats:
+                if f.get('url'):
+                    # 1. Video formats (Jisme Video aur Audio dono combined ho)
+                    if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
+                        res = f.get('resolution') or f.get('format_note') or 'Best'
+                        ext = f.get('ext', 'mp4')
+                        fs = f.get('filesize')
+                        size_str = f"{round(fs / (1024*1024), 2)} MB" if fs else "Unknown Size"
+                        
+                        download_links.append({
+                            'quality': f"🎥 Video: {res} ({ext})",
+                            'url': f.get('url'),
+                            'size': size_str
+                        })
+                    
+                    # 2. Audio-only formats (MP3 jaisa kaam karne ke liye)
+                    elif f.get('vcodec') == 'none' and f.get('acodec') != 'none':
+                        ext = f.get('ext', 'm4a').upper()
+                        fs = f.get('filesize')
+                        size_str = f"{round(fs / (1024*1024), 2)} MB" if fs else "Unknown Size"
+                        
+                        download_links.append({
+                            'quality': f"🎵 Audio Only: ({ext})",
+                            'url': f.get('url'),
+                            'size': size_str
+                        })
+            
+            # Formats ko thoda set kar dete hain taaki acche options upar dikhein
+            download_links.reverse()
 
-        return jsonify({
-            "title": info.get('title'), 
-            "thumbnail": info.get('thumbnail'),
-            "mp4_url": mp4_url,
-            "mp3_url": mp3_url
-        })
+            if not download_links:
+                return jsonify({'error': 'Koi valid link nahi mila!'}), 400
+                
+            return jsonify({
+                'title': title,
+                'thumbnail': thumbnail,
+                'links': download_links[:20]  # Top 20 options show honge list mein
+            })
+            
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
-import os
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True, port=5000)
