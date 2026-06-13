@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request, jsonify
 import yt_dlp
+import os  # <--- Render ke liye zaroori import yahan laga diya hai
 
 app = Flask(__name__)
 
@@ -113,7 +114,7 @@ def get_links():
         return jsonify({'error': 'URL missing hai bhai!'}), 400
 
     ydl_opts = {
-        'cookiefile': 'cookies.txt',  # Aapki download ki hui file
+        'cookiefile': 'cookies.txt',
         'quiet': True,
         'no_warnings': True,
     }
@@ -129,7 +130,6 @@ def get_links():
             
             for f in formats:
                 if f.get('url'):
-                    # 1. Video formats (Jisme Video aur Audio dono combined ho)
                     if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
                         res = f.get('resolution') or f.get('format_note') or 'Best'
                         ext = f.get('ext', 'mp4')
@@ -142,7 +142,6 @@ def get_links():
                             'size': size_str
                         })
                     
-                    # 2. Audio-only formats (MP3 jaisa kaam karne ke liye)
                     elif f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                         ext = f.get('ext', 'm4a').upper()
                         fs = f.get('filesize')
@@ -154,7 +153,6 @@ def get_links():
                             'size': size_str
                         })
             
-            # Formats ko thoda set kar dete hain taaki acche options upar dikhein
             download_links.reverse()
 
             if not download_links:
@@ -163,11 +161,14 @@ def get_links():
             return jsonify({
                 'title': title,
                 'thumbnail': thumbnail,
-                'links': download_links[:20]  # Top 20 options show honge list mein
+                'links': download_links[:20]
             })
             
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# --- RENDER PORT FIX ---
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Yeh lines Render ko batayengi ki kaunse port par chalna hai
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
