@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# --- UI (Same clean look) ---
+# --- UI (Improved JavaScript & Beautiful Dark Theme) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -13,38 +13,90 @@ HTML_TEMPLATE = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editors Downloader</title>
     <style>
-        body { background: #0f0c20; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .container { background: #181528; padding: 30px; border-radius: 15px; width: 90%; max-width: 500px; text-align: center; }
-        h1 { color: #a178ff; margin-bottom: 20px; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 5px; border: none; }
-        button { background: #a178ff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
-        .result-box { display: none; margin-top: 20px; text-align: left; }
-        .link-item { background: #2a2444; padding: 10px; margin-top: 10px; border-radius: 5px; display: flex; justify-content: space-between; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: #0f0c20; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { background: #181528; padding: 30px; border-radius: 15px; width: 100%; max-width: 500px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #2a2444; }
+        h1 { color: #a178ff; margin-bottom: 20px; font-size: 1.8rem; text-transform: uppercase; }
+        .input-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #2a2444; background: #0f0c20; color: #fff; outline: none; }
+        input:focus { border-color: #a178ff; }
+        button { background: #a178ff; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #8253e6; }
+        .status-text { margin: 15px 0; color: #ffc107; font-size: 0.9rem; display: none; }
+        .result-box { display: none; margin-top: 20px; text-align: left; background: #0f0c20; padding: 15px; border-radius: 10px; border: 1px solid #2a2444; }
+        .link-item { background: #181528; padding: 12px; margin-top: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #2a2444; }
+        .download-btn { background: #28a745; color: white; text-decoration: none; padding: 6px 15px; border-radius: 5px; font-size: 0.9rem; }
+        .download-btn:hover { background: #218838; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Editors Downloader</h1>
-        <input type="text" id="videoUrl" placeholder="Paste link here...">
-        <button onclick="fetchLinks()">Get Links</button>
+        <div class="input-box">
+            <input type="text" id="videoUrl" placeholder="Paste YouTube Link Here...">
+            <button id="btn" onclick="fetchLinks()">Get Links</button>
+        </div>
+        <div id="statusText" class="status-text">Processing... Please wait...</div>
         <div id="resultBox" class="result-box">
+            <h3 style="font-size: 1rem; color: #a178ff; margin-bottom: 10px;">Download Links:</h3>
             <ul id="linksList" style="list-style: none;"></ul>
         </div>
     </div>
+
     <script>
         async function fetchLinks() {
             const url = document.getElementById('videoUrl').value;
-            const res = await fetch('/get_links', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url}) });
-            const data = await res.json();
+            const statusText = document.getElementById('statusText');
+            const resultBox = document.getElementById('resultBox');
             const list = document.getElementById('linksList');
+            const btn = document.getElementById('btn');
+            
+            if(!url) { alert('Bhai pehle link toh daalo!'); return; }
+            
+            // UI Reset & Show Loading
+            statusText.innerText = "Connecting to Cobalt API... Please wait...";
+            statusText.style.display = 'block';
+            resultBox.style.display = 'none';
             list.innerHTML = '';
-            if(data.video_url) {
-                list.innerHTML += `<li class="link-item">Video <a href="${data.video_url}" target="_blank">Download</a></li>`;
+            btn.disabled = true;
+            
+            try {
+                const res = await fetch('/get_links', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({url: url}) 
+                });
+                
+                const data = await res.json();
+                statusText.style.display = 'none';
+                btn.disabled = false;
+                
+                if(data.error) { 
+                    alert('Backend Error: ' + data.error); 
+                    return; 
+                }
+                
+                let linksAdded = false;
+                if(data.video_url) {
+                    list.innerHTML += `<li class="link-item"><span>🎥 Full Video (1080p)</span><a href="${data.video_url}" target="_blank" class="download-btn">Download</a></li>`;
+                    linksAdded = true;
+                }
+                if(data.audio_url) {
+                    list.innerHTML += `<li class="link-item"><span>🎵 Audio Only (MP3/M4A)</span><a href="${data.audio_url}" target="_blank" class="download-btn">Download</a></li>`;
+                    linksAdded = true;
+                }
+                
+                if(linksAdded) {
+                    resultBox.style.display = 'block';
+                } else {
+                    alert('Cobalt API se koi valid link nahi mila! Video private ya blocked ho sakti hai.');
+                }
+            } catch(err) {
+                statusText.style.display = 'none';
+                btn.disabled = false;
+                alert('Request failed! Console check karo bhai.');
+                console.error(err);
             }
-            if(data.audio_url) {
-                list.innerHTML += `<li class="link-item">Audio <a href="${data.audio_url}" target="_blank">Download</a></li>`;
-            }
-            document.getElementById('resultBox').style.display = 'block';
         }
     </script>
 </body>
@@ -57,22 +109,31 @@ def index():
 
 @app.route('/get_links', methods=['POST'])
 def get_links():
-    data = request.get_json()
-    video_url = data.get('url')
-    
-    # Cobalt API structure
-    api_url = "https://api.cobalt.tools/api/json"
-    headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
-    
-    # 1. Video Request
-    v_res = requests.post(api_url, json={"url": video_url, "videoQuality": "1080"}, headers=headers).json()
-    # 2. Audio Request
-    a_res = requests.post(api_url, json={"url": video_url, "isAudioOnly": True}, headers=headers).json()
-    
-    return jsonify({
-        'video_url': v_res.get('url'),
-        'audio_url': a_res.get('url')
-    })
+    try:
+        data = request.get_json()
+        video_url = data.get('url') if data else None
+        
+        if not video_url:
+            return jsonify({'error': 'URL missing hai bhai!'}), 400
+
+        api_url = "https://api.cobalt.tools/api/json"
+        headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
+        
+        # 1. Video Request
+        v_res = requests.post(api_url, json={"url": video_url, "videoQuality": "1080"}, headers=headers)
+        v_data = v_res.json() if v_res.status_code == 200 else {}
+        
+        # 2. Audio Request
+        a_res = requests.post(api_url, json={"url": video_url, "isAudioOnly": True}, headers=headers)
+        a_data = a_res.json() if a_res.status_code == 200 else {}
+        
+        return jsonify({
+            'video_url': v_data.get('url'),
+            'audio_url': a_data.get('url')
+        })
+            
+    except Exception as e:
+        return jsonify({'error': f"Internal Server Crash: {str(e)}"}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
