@@ -105,7 +105,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
-# --- BACKEND (Flask + Cobalt Mirror API) ---
+# --- BACKEND (Flask + Stable Cobalt API v0) ---
 @app.route('/')
 def index():
     return render_template_string(HTML_TEMPLATE)
@@ -119,15 +119,15 @@ def get_links():
         if not video_url:
             return jsonify({'error': 'URL missing hai bhai!'}), 400
 
-        # Official Cobalt Alternative Endpoint (wuk.sh)
-        api_url = "https://co.wuk.sh/api/json"
+        # Ekdum stable fresh endpoint jisse Render aaram se connect kar sake
+        api_url = "https://cobalt.api.v0.id/api/json"
         headers = {'Accept': 'application/json', 'Content-Type': 'application/json'}
         
-        # 1. Video Request (Bypass)
+        # 1. Video Request
         v_res = requests.post(api_url, json={"url": video_url, "videoQuality": "1080"}, headers=headers)
         v_data = v_res.json() if v_res.status_code == 200 else {}
         
-        # 2. Audio Request (Bypass)
+        # 2. Audio Request
         a_res = requests.post(api_url, json={"url": video_url, "isAudioOnly": True}, headers=headers)
         a_data = a_res.json() if a_res.status_code == 200 else {}
         
