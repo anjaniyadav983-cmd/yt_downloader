@@ -3,7 +3,7 @@ import os
 
 app = Flask(__name__)
 
-# --- PURE CLIENT-SIDE DOWNING ENGINE (No Server Block) ---
+# --- FRONTEND UI (SaveFrom Secure Bypass) ---
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -19,12 +19,8 @@ HTML_TEMPLATE = """
         .input-box { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
         input { width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #2a2444; background: #0f0c20; color: #fff; outline: none; font-size: 1rem; text-align: center; }
         input:focus { border-color: #a178ff; }
-        .btn-group { display: flex; gap: 10px; justify-content: center; }
-        .action-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; color: white; text-decoration: none; text-align: center; }
-        .v-btn { background: #a178ff; }
-        .v-btn:hover { background: #8253e6; }
-        .a-btn { background: #28a745; }
-        .a-btn:hover { background: #218838; }
+        .action-btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1rem; color: white; text-decoration: none; text-align: center; background: #a178ff; }
+        .action-btn:hover { background: #8253e6; }
         .notice { font-size: 0.85rem; color: #888; margin-top: 15px; line-height: 1.4; }
     </style>
 </head>
@@ -33,34 +29,25 @@ HTML_TEMPLATE = """
         <h1>Editors Downloader</h1>
         <div class="input-box">
             <input type="text" id="videoUrl" placeholder="Paste YouTube Link Here...">
-            
-            <div class="btn-group">
-                <button onclick="startDownload('video')" class="action-btn v-btn">🎥 Download Video</button>
-                <button onclick="startDownload('audio')" class="action-btn a-btn">🎵 Download Audio</button>
-            </div>
+            <button onclick="startDownload()" class="action-btn">🚀 Fetch Download Links</button>
         </div>
         <div class="notice">
-            <p><strong>Note:</strong> Link paste karke button dabao. Ek safe download page khulega, wahan 5 second ka process chalega aur aapka file save ho jayega!</p>
+            <p><strong>Bypass Mode:</strong> Link daal kar button dabao, SaveFrom ka official working page khulega jahan se aap 1080p Video ya Audio direct download kar sakte hain!</p>
         </div>
     </div>
 
     <script>
-        function startDownload(type) {
+        function startDownload() {
             const url = document.getElementById('videoUrl').value;
             if(!url) { alert('Bhai pehle link toh daalo!'); return; }
             
-            const encodedUrl = encodeURIComponent(url);
-            let targetUrl = "";
+            // Clean the URL
+            let cleanUrl = url.trim();
             
-            if(type === 'audio') {
-                // High-quality Audio direct query
-                targetUrl = `https://p.oceansaver.in/api/button/?url=${encodedUrl}&f=mp3&color=a178ff`;
-            } else {
-                // 1080p Full HD Video direct query
-                targetUrl = `https://p.oceansaver.in/api/button/?url=${encodedUrl}&f=1080&color=a178ff`;
-            }
+            // SaveFrom protocol link generation
+            const targetUrl = `https://sfrom.net/${cleanUrl}`;
             
-            // Open secure iframe gateway in a new tab without using Render's broken internet
+            // Opens the un-blockable web gateway
             window.open(targetUrl, '_blank');
         }
     </script>
