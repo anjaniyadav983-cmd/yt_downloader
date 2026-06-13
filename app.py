@@ -1,6 +1,6 @@
 from flask import Flask, render_template_string, request, jsonify
 import yt_dlp
-import os  # <--- Render ke liye zaroori import yahan laga diya hai
+import os  # Render port aur file check karne ke liye
 
 app = Flask(__name__)
 
@@ -113,6 +113,12 @@ def get_links():
     if not video_url:
         return jsonify({'error': 'URL missing hai bhai!'}), 400
 
+    # Render Logs me check karne ke liye ki cookies file exist karti hai ya nahi
+    if os.path.exists('cookies.txt'):
+        print("✅ SERVER LOG: cookies.txt file successfully mil gayi!")
+    else:
+        print("❌ SERVER LOG: ERROR! cookies.txt file nahi mili!")
+
     ydl_opts = {
         'cookiefile': 'cookies.txt',
         'quiet': True,
@@ -130,6 +136,7 @@ def get_links():
             
             for f in formats:
                 if f.get('url'):
+                    # 1. Video formats
                     if f.get('vcodec') != 'none' and f.get('acodec') != 'none':
                         res = f.get('resolution') or f.get('format_note') or 'Best'
                         ext = f.get('ext', 'mp4')
@@ -142,6 +149,7 @@ def get_links():
                             'size': size_str
                         })
                     
+                    # 2. Audio formats
                     elif f.get('vcodec') == 'none' and f.get('acodec') != 'none':
                         ext = f.get('ext', 'm4a').upper()
                         fs = f.get('filesize')
@@ -167,6 +175,7 @@ def get_links():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# --- RENDER PORT BINDING FIX ---
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
